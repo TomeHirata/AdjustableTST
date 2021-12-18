@@ -249,6 +249,10 @@ class EvaluatorAE(EvaluatorBase):
                                 predictions = (len2 - 2).float().div(params.bucket_size).sub(1).clamp(0, n_attr - 1).long()
                             else:
                                 samples = convert_to_text(sent2, len2, self.dico, params)
+                                if params.output_text:
+                                    samples1 = convert_to_text(sent1, len1, self.dico, params)
+                                    logger.info(f'source {label}: {samples1[0]}')
+                                    logger.info(f'generate {new_label}: {samples[0]}')
                                 # get top 5 predictions
                                 predictions = self.ftt_clfs[attr].predict(samples, k=5)[0]
                                 ##

@@ -529,6 +529,32 @@ class TrainerAE(TrainerBase):
         # encoded states
         encoded = self.encoder(sent1, len1)
 
+        encoder_out = encoded.dis_input
+        # print(encoder_out.shape)
+        # print(self.decoder.bos_attr_embeddings.weight.shape)
+
+        # content_emb = encoder_out[:,:C//2]#.mean(dim=0)
+
+        if params.attention:
+            if params.transformer:
+                T,B,C = encoder_out.shape
+                style_emb = encoder_out[:,:,C//2:].mean(dim=0)
+                with torch.no_grad():
+                    for i in range(B):
+                        for attr in attr1:
+                            self.decoder.num_styles[attr] = self.decoder.num_styles[attr] + 1
+                            self.decoder.bos_attr_embeddings.weight[attr] = (
+                            (self.decoder.num_styles[attr]-1) * self.decoder.bos_attr_embeddings.weight[attr] + style_emb[i])/self.decoder.num_styles[attr]
+            else:
+                B,C = encoder_out.shape
+                style_emb = encoder_out[:,C//2:]
+                with torch.no_grad():
+                    for i in range(B):
+                        for attr in attr1:
+                            self.decoder.num_styles[attr] = self.decoder.num_styles[attr] + 1
+                            self.decoder.bos_attr_embeddings.weight[attr] = (
+                            (self.decoder.num_styles[attr]-1) * self.decoder.bos_attr_embeddings.weight[attr] + style_emb[i])/self.decoder.num_styles[attr]
+        
         # cross-entropy scores / loss
         scores = self.decoder(encoded, sent2[:-1], attr2)
         xe_loss = self.decoder.loss_fn(scores.view(-1, n_words), sent2[1:].view(-1))
@@ -544,13 +570,18 @@ class TrainerAE(TrainerBase):
                 )
 
             fake_y = torch.LongTensor(predictions.size(0)).random_(1, params.n_langs)
-            fake_y = (fake_y + lang1_id) % params.n_langs
+            fake_y = (fake_y ) % params.n_langs
             fake_y = fake_y.cuda()
             dis_loss = F.cross_entropy(predictions, fake_y)
 
         # total loss
         assert lambda_xe > 0
         loss = lambda_xe * xe_loss
+        if params.lambda_cl:
+            for attr in attr1:
+                for i in range(B):
+                    loss += torch.nn.MSELoss()(style_emb[i], self.decoder.bos_attr_embeddings.weight[attr])/B
+
         if params.lambda_dis:
             loss = loss + params.lambda_dis * dis_loss
 

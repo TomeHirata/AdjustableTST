@@ -127,6 +127,7 @@ def get_dump_path(params):
     assert params.dump_path != ''
     dump_path = params.dump_path
     assert len(params.name) > 0
+    print(dump_path)
     assert os.path.isdir(dump_path)
 
     # create the sweep path if it does not exist

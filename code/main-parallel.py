@@ -7,7 +7,9 @@
 
 import time
 import argparse
-
+import torch
+import warnings
+warnings.simplefilter('ignore')
 from src.data.loader import check_all_data_params, load_data
 from src.utils import bool_flag, attr_flag, initialize_exp
 from src.model import check_ae_model_params, build_ae_model
@@ -161,6 +163,8 @@ parser.add_argument("--group_by_size", type=bool_flag, default=False,
                     help="Sort sentences by size during the training")
 parser.add_argument("--lambda_ae", type=str, default="1.0",
                     help="Cross-entropy reconstruction coefficient (autoencoding)")
+parser.add_argument("--lambda_cl", type=str, default="0.1",
+                    help="Cross-entropy reconstruction coefficient (center loss)")
 parser.add_argument("--lambda_bt", type=str, default="1.0",
                     help="Cross-entropy reconstruction coefficient (on-the-fly back-translation parallel data)")
 parser.add_argument("--lambda_dis", type=str, default="0",
@@ -216,6 +220,8 @@ parser.add_argument("--eval_only", type=bool_flag, default=False,
                     help="Only run evaluations")
 parser.add_argument("--beam_size", type=int, default=0,
                     help="Beam width (<= 0 means greedy)")
+parser.add_argument("--output_text", type=bool_flag, default=False,
+                    help="print text")
 parser.add_argument("--length_penalty", type=float, default=1.0,
                     help="Length penalty: <1.0 favors shorter, >1.0 favors longer sentences")
 parser.add_argument("--bleu_script_path", type=str, required=True,
@@ -277,6 +283,8 @@ if __name__ == '__main__':
             # autoencoder training (monolingual data)
             if params.lambda_ae > 0:
                 trainer.enc_dec_step(params.lambda_ae, attr_label=trainer.get_attr_label())
+                # with torch.autograd.set_detect_anomaly(True):
+                #     trainer.enc_dec_step(params.lambda_ae, attr_label=trainer.get_attr_label())
 
             # autoencoder training (on the fly back-translation)
             if params.lambda_bt > 0:
