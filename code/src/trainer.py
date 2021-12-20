@@ -539,21 +539,11 @@ class TrainerAE(TrainerBase):
             if params.transformer:
                 T,B,C = encoder_out.shape
                 style_emb = encoder_out[:,:,C//2:].mean(dim=0)
-                with torch.no_grad():
-                    for i in range(B):
-                        for attr in attr1:
-                            self.decoder.num_styles[attr] = self.decoder.num_styles[attr] + 1
-                            self.decoder.bos_attr_embeddings.weight[attr] = (
-                            (self.decoder.num_styles[attr]-1) * self.decoder.bos_attr_embeddings.weight[attr] + style_emb[i])/self.decoder.num_styles[attr]
+                self.decoder.update_bos_attr_embeddings(style_emb, attr1)
             else:
                 B,C = encoder_out.shape
-                style_emb = encoder_out[:,C//2:]
-                with torch.no_grad():
-                    for i in range(B):
-                        for attr in attr1:
-                            self.decoder.num_styles[attr] = self.decoder.num_styles[attr] + 1
-                            self.decoder.bos_attr_embeddings.weight[attr] = (
-                            (self.decoder.num_styles[attr]-1) * self.decoder.bos_attr_embeddings.weight[attr] + style_emb[i])/self.decoder.num_styles[attr]
+                style_emb = encoder_out[:,C//2:].mean(dim=0)
+                self.decoder.update_bos_attr_embeddings(style_emb, attr1)
         
         # cross-entropy scores / loss
         scores = self.decoder(encoded, sent2[:-1], attr2)
@@ -578,9 +568,13 @@ class TrainerAE(TrainerBase):
         assert lambda_xe > 0
         loss = lambda_xe * xe_loss
         if params.lambda_cl:
-            for attr in attr1:
-                for i in range(B):
-                    loss += torch.nn.MSELoss()(style_emb[i], self.decoder.bos_attr_embeddings.weight[attr])/B
+            if params.transformer:
+                for attr in attr1:
+                    for i in range(B):
+                        loss += torch.nn.MSELoss()(style_emb[i], self.decoder.bos_attr_embeddings.weight[attr])/B
+            else:
+                for attr in attr1:
+                    loss += torch.nn.MSELoss()(style_emb, self.decoder.bos_attr_embeddings.weight[attr])/B
 
         if params.lambda_dis:
             loss = loss + params.lambda_dis * dis_loss

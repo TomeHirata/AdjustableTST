@@ -175,6 +175,18 @@ class TransformerDecoder(nn.Module):
         if self.bias_attr == 'cross':
             return self.bias_attr_embeddings(((attr - self.attr_offset[None]) * self.attr_shifts[None]).sum(1))
         assert False
+    
+    def update_bos_attr_embeddings(self, style_emb, attrs):
+        """
+        update bos_attr_embeddings
+        """
+        B, _ = style_emb.shape
+        with torch.no_grad():
+            for i in range(B):
+                for attr in attrs:
+                    self.num_styles[attr] = self.num_styles[attr] + 1
+                    self.bos_attr_embeddings.weight[attr] = (
+                    (self.num_styles[attr]-1) * self.bos_attr_embeddings.weight[attr] + style_emb[i])/self.num_styles[attr]
 
     def forward(self, encoded, y, attr, one_hot=False, incremental_state=None):
         assert not one_hot, 'one_hot=True has not been implemented for transformer'
