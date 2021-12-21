@@ -165,6 +165,8 @@ parser.add_argument("--lambda_ae", type=str, default="1.0",
                     help="Cross-entropy reconstruction coefficient (autoencoding)")
 parser.add_argument("--lambda_cl", type=str, default="0.1",
                     help="Cross-entropy reconstruction coefficient (center loss)")
+parser.add_argument("--lambda_cc", type=str, default="0.1",
+                    help="Content consistency")
 parser.add_argument("--lambda_bt", type=str, default="1.0",
                     help="Cross-entropy reconstruction coefficient (on-the-fly back-translation parallel data)")
 parser.add_argument("--lambda_dis", type=str, default="0",

@@ -522,9 +522,10 @@ class TrainerAE(TrainerBase):
         sent2, len2, attr2 = sent1, len1, attr1
 
         # prepare the encoder / decoder inputs
-        sent1, len1 = self.add_noise(sent1, len1)
+        # sent1, len1 = self.add_noise(sent1, len1)
         sent1, sent2 = sent1.cuda(), sent2.cuda()
         attr1, attr2 = attr1.cuda(), attr2.cuda()
+        len1, len2 = len1.cuda(), len2.cuda()
 
         # encoded states
         encoded = self.encoder(sent1, len1)
@@ -538,11 +539,13 @@ class TrainerAE(TrainerBase):
         if params.attention:
             if params.transformer:
                 T,B,C = encoder_out.shape
-                style_emb = encoder_out[:,:,C//2:].mean(dim=0)
+                style_tensor = encoder_out[:,:,C//2:]
+                style_emb = style_tensor.mean(dim=0)
                 self.decoder.update_bos_attr_embeddings(style_emb, attr1)
             else:
                 B,C = encoder_out.shape
-                style_emb = encoder_out[:,C//2:].mean(dim=0)
+                style_tensor = encoder_out[:,C//2:]
+                style_emb = style_tensor.mean(dim=0)
                 self.decoder.update_bos_attr_embeddings(style_emb, attr1)
         
         # cross-entropy scores / loss
@@ -553,28 +556,28 @@ class TrainerAE(TrainerBase):
         # discriminator feedback loss
         if params.lambda_dis:
             if params.disc_lstm_dim > 0:
-                predictions = self.discriminator(encoded.dis_input, encoded.input_len)
+                predictions = self.discriminator(style_tensor, encoded.input_len)
             else:
                 predictions = self.discriminator(
-                    encoded.dis_input.view(-1, encoded.dis_input.size(-1))
+                    style_tensor.view(-1, style_tensor.size(-1))
                 )
+            predictions = predictions[0]
 
-            fake_y = torch.LongTensor(predictions.size(0)).random_(1, params.n_langs)
-            fake_y = (fake_y ) % params.n_langs
-            fake_y = fake_y.cuda()
-            dis_loss = F.cross_entropy(predictions, fake_y)
+            y = torch.full([predictions.size(0)], attr1[0].item()).long()
+            y = y.cuda()
+            dis_loss = F.cross_entropy(predictions, y)
 
         # total loss
         assert lambda_xe > 0
         loss = lambda_xe * xe_loss
         if params.lambda_cl:
             if params.transformer:
-                for attr in attr1:
+                for attr in attr1[0]:
                     for i in range(B):
-                        loss += torch.nn.MSELoss()(style_emb[i], self.decoder.bos_attr_embeddings.weight[attr])/B
+                        loss += 0.1*torch.nn.MSELoss()(style_emb[i], self.decoder.bos_attr_embeddings.weight[attr])/B
             else:
-                for attr in attr1:
-                    loss += torch.nn.MSELoss()(style_emb, self.decoder.bos_attr_embeddings.weight[attr])/B
+                for attr in attr1[0]:
+                    loss += 0.1*torch.nn.MSELoss()(style_emb, self.decoder.bos_attr_embeddings(attr))/B
 
         if params.lambda_dis:
             loss = loss + params.lambda_dis * dis_loss
@@ -725,6 +728,16 @@ class TrainerAE(TrainerBase):
 
                 # attr1 -> attr2
                 encoded = self.encoder(sent1, len1)
+                content_emb=0
+                if params.attention:
+                    if params.transformer:
+                        T,B,C = encoded.dis_input.shape
+                        content_tensor = encoded.dis_input[:,:,:C//2]
+                        content_emb = content_tensor.mean(dim=0)
+                    else:
+                        B,C = encoded.dis_input.shape
+                        content_tensor = encoded.dis_input[:,:C//2]
+                        content_emb = content_tensor.mean(dim=0)
                 max_len = int(1.5 * len1.max() + 10)
                 assert params.otf_temperature >= 0
                 if params.otf_temperature == 0:
@@ -740,6 +753,7 @@ class TrainerAE(TrainerBase):
                     ('sent1', sent1), ('len1', len1), ('attr1', attr1),
                     ('sent2', sent2), ('len2', len2), ('attr2', attr2),
                     ('sent3', sent3), ('len3', len3), ('attr3', attr3),
+                    ('content_emb1', content_emb.cpu())
                 ]))
 
         return (rank, results)
@@ -789,6 +803,18 @@ class TrainerAE(TrainerBase):
         self.stats['xe_bt'].append(xe_loss.item())
         assert lambda_xe > 0
         loss = lambda_xe * xe_loss
+
+        if params.attention:
+            content_emb1 = batch['content_emb1'].cuda()
+            if params.transformer:
+                T,B,C = encoded.dis_input.shape
+                content_tensor = encoded.dis_input[:,:,:C//2]
+                content_emb = content_tensor.mean(dim=0)
+            else:
+                B,C = encoded.dis_input.shape
+                content_tensor = encoded.dis_input[:,:C//2]
+                content_emb = content_tensor.mean(dim=0)
+            loss += 0.3* torch.nn.MSELoss()(content_emb, content_emb1)
 
         # check NaN
         if (loss != loss).data.any():
