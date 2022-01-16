@@ -574,10 +574,10 @@ class TrainerAE(TrainerBase):
             if params.transformer:
                 for attr in attr1[0]:
                     for i in range(B):
-                        loss += 0.1*torch.nn.MSELoss()(style_emb[i], self.decoder.bos_attr_embeddings.weight[attr])/B
+                        loss += params.lambda_cl*torch.nn.MSELoss()(style_emb[i], self.decoder.bos_attr_embeddings.weight[attr])/B
             else:
                 for attr in attr1[0]:
-                    loss += 0.1*torch.nn.MSELoss()(style_emb, self.decoder.bos_attr_embeddings(attr))/B
+                    loss += params.lambda_cl*torch.nn.MSELoss()(style_emb, self.decoder.bos_attr_embeddings(attr))/B
 
         if params.lambda_dis:
             loss = loss + params.lambda_dis * dis_loss
@@ -814,7 +814,7 @@ class TrainerAE(TrainerBase):
                 B,C = encoded.dis_input.shape
                 content_tensor = encoded.dis_input[:,:C//2]
                 content_emb = content_tensor.mean(dim=0)
-            loss += 0.3* torch.nn.MSELoss()(content_emb, content_emb1)
+            loss += params.lambda_cc * torch.nn.MSELoss()(content_emb, content_emb1)
 
         # check NaN
         if (loss != loss).data.any():
