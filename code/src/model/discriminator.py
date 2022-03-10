@@ -20,7 +20,7 @@ class MultiAttrDiscriminator(nn.Module):
         super(MultiAttrDiscriminator, self).__init__()
 
         self.attr_values = params.attr_values
-        self.input_dim = params.hidden_dim if params.attention and not params.transformer else params.hidden_dim
+        self.input_dim = params.hidden_dim //2
         self.dis_layers = params.dis_layers
         self.dis_hidden_dim = params.dis_hidden_dim
         self.dis_dropout = params.dis_dropout
@@ -58,7 +58,7 @@ class MultiAttrDiscriminatorLSTM(nn.Module):
         super(MultiAttrDiscriminatorLSTM, self).__init__()
 
         self.attr_values = params.attr_values
-        self.input_dim = params.hidden_dim if not params.attention else params.emb_dim
+        self.input_dim = params.hidden_dim//2 if not params.attention else params.emb_dim//2
         assert params.disc_lstm_dim is not None
         assert params.disc_lstm_layers is not None
         self.lstm_dim = params.disc_lstm_dim
@@ -95,7 +95,7 @@ class MultiAttrDiscriminatorLSTM(nn.Module):
         sorted_input = input.index_select(1, sorted_idx)
         sorted_lengths = lengths.index_select(0, sorted_idx)
         packed_input = torch.nn.utils.rnn.pack_padded_sequence(
-            sorted_input, sorted_lengths
+            sorted_input, sorted_lengths.cpu()
         )
         _, (h_t, _) = self.aggregator(packed_input)
         h_t = torch.cat([h_t[-1], h_t[-2]], 1).index_select(0, rev_sorted_idx)

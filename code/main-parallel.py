@@ -156,8 +156,10 @@ parser.add_argument("--group_by_size", type=bool_flag, default=False,
                     help="Sort sentences by size during the training")
 parser.add_argument("--lambda_ae", type=str, default="1.0",
                     help="Cross-entropy reconstruction coefficient (autoencoding)")
-parser.add_argument("--lambda_cl", type=str, default="0.1",
+parser.add_argument("--lambda_cl", type=float, default=0.1,
                     help="Cross-entropy reconstruction coefficient (center loss)")
+parser.add_argument("--lambda_cc", type=float, default=0.3,
+                    help="Content consistency")
 parser.add_argument("--lambda_bt", type=str, default="1.0",
                     help="Cross-entropy reconstruction coefficient (on-the-fly back-translation parallel data)")
 parser.add_argument("--lambda_dis", type=str, default="0",

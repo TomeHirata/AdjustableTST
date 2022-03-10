@@ -232,7 +232,7 @@ class Decoder(nn.Module):
         update bos_attr_embeddings
         """
         with torch.no_grad():
-            for attr in attrs:
+            for attr in attrs[0]:
                 self.num_styles[attr] = self.num_styles[attr] + 1
                 self.bos_attr_embeddings.weight[attr] = (
                 (self.num_styles[attr]-1) * self.bos_attr_embeddings.weight[attr] + style_emb)/self.num_styles[attr]
@@ -537,9 +537,9 @@ def build_attention_model(params, data, cuda=True):
         logger.info("============ Building attention model - Discriminator ...")
         if params.disc_lstm_dim > 0:
             assert params.disc_lstm_layers >= 1
-            discriminator = MultiAttrDiscriminatorLSTM(params)
+            discriminator = MultiAttrDiscriminatorLSTM(params).cuda()
         else:
-            discriminator = MultiAttrDiscriminator(params)
+            discriminator = MultiAttrDiscriminator(params).cuda()
         logger.info("")
     else:
         discriminator = None
