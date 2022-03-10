@@ -1,6 +1,6 @@
 # スタイル変換度を調整可能な文章のスタイル変換に関する研究
 
-PyTorch を持ちいたスタイルの変換度合いを調整できるText Style Transferに関する研究のレポジトリです
+PyTorch を用いたスタイルの変換度合いを調整できるText Style Transferに関する研究のレポジトリです
 
 このレポジトリはYelp ReviewデータセットとAmazon Reviewデータセットの実験に対応しています。詳細は`data`ディレクトリをご覧ください
 
