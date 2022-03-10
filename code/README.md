@@ -56,8 +56,8 @@ data/dataset/yelp/processed/style_transfer/test.fader.with_cat.proc.<bpe_codes>.
 
 ```bash
 mkdir models/style_transfer
-python main-parallel.py --exp_name test \
-    --dump_path models/style_transfer \
+python main-parallel.py --exp_name train \
+    --dump_path models/test \
     --mono_dataset ../data/dataset/yelp/processed/style_transfer/train.fader.with_cat.proc.40000.pth,../data/dataset/yelp/processed/style_transfer/valid.fader.with_cat.proc.40000.pth,../data/dataset/yelp/processed/style_transfer/test.fader.with_cat.proc.40000.pth \
     --attributes binary_sentiment \
     --n_mono -1 \

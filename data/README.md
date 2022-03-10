@@ -1,7 +1,6 @@
 # Dataset pre-processing.
 
-This Readme helps setup the FYelp and Amazon datasets preseted in our ICLR'19 paper [Multiple-Attribute Text Style Transfer
-](https://arxiv.org/abs/1811.00552).
+以下のデータセットのセットアップの説明はfork元のレポジトリのものと同様です。
 
 ## Dependencies
 
