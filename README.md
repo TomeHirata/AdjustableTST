@@ -1,11 +1,7 @@
-# Multiple-Attribute Text Rewriting
+# スタイル変換度を調整可能な文章のスタイル変換に関する研究
 
-PyTorch implementation of [Multiple-Attribute Text Rewriting](https://arxiv.org/abs/1811.00552) (ICLR 2019) along with code to create datasets used in the paper.
+PyTorch を持ちいたスタイルの変換度合いを調整できるText Style Transferに関する研究のレポジトリです
 
-To use the datasets presented in this work, please look at the README in the `data` folder.
+このレポジトリはYelp ReviewデータセットとAmazon Reviewデータセットの実験に対応しています。詳細は`data`ディレクトリをご覧ください
 
-Code to train models is in the `code` folder.
-
-## License
-
-See the LICENSE file in this root folder for more details.
+実験を走らせる方法については`code`ディレクトリをご覧ください

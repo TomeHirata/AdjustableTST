@@ -162,10 +162,17 @@ class Decoder(nn.Module):
             self.register_buffer('attr_shifts', params.attr_shifts.clone())
         if self.bos_attr != '':
             n_bos_attr = sum(params.n_labels) if self.bos_attr == 'avg' else reduce(mul, params.n_labels, 1)
-            self.bos_attr_embeddings = nn.Embedding(n_bos_attr, self.emb_dim)
+            self.bos_attr_embeddings = nn.Embedding(n_bos_attr, 512)
+            self.num_styles = [0]*n_bos_attr
+            self.style_proj = nn.Linear(512, self.emb_dim)
         if self.bias_attr != '':
-            n_bias_attr = sum(params.n_labels) if self.bias_attr == 'avg' else reduce(mul, params.n_labels, 1)
-            self.bias_attr_embeddings = nn.Embedding(n_bias_attr, self.n_words)
+            # n_bias_attr = sum(params.n_labels) if self.bias_attr == 'avg' else reduce(mul, params.n_labels, 1)
+            # self.bias_attr_embeddings = nn.Embedding(n_bias_attr, self.n_words)
+            self.style_bias_proj = nn.Sequential(
+                nn.Linear(512, 50),
+                nn.ReLU(),
+                nn.Linear(50, self.n_words),
+            )
 
         # embedding layers
         if self.share_encdec_emb:
@@ -205,20 +212,32 @@ class Decoder(nn.Module):
         Generate beginning of sentence attribute embedding.
         """
         if self.bos_attr == 'avg':
-            return self.bos_attr_embeddings(attr).mean(1)
+            return self.style_proj(self.bos_attr_embeddings(attr).mean(1).detach())
         if self.bos_attr == 'cross':
-            return self.bos_attr_embeddings(((attr - self.attr_offset[None]) * self.attr_shifts[None]).sum(1))
+            return self.style_proj(self.bos_attr_embeddings(((attr - self.attr_offset[None]) * self.attr_shifts[None]).sum(1)).detach())
         assert False
 
     def get_bias_attr(self, attr):
         """
         Generate attribute bias.
         """
-        if self.bias_attr == 'avg':
-            return self.bias_attr_embeddings(attr).mean(1)
-        if self.bias_attr == 'cross':
-            return self.bias_attr_embeddings(((attr - self.attr_offset[None]) * self.attr_shifts[None]).sum(1))
+        if self.bos_attr == 'avg':
+            return self.style_bias_proj(self.bos_attr_embeddings(attr).mean(1).detach())
+        if self.bos_attr == 'cross':
+            return self.style_bias_proj(self.bos_attr_embeddings(((attr - self.attr_offset[None]) * self.attr_shifts[None]).sum(1)).detach())
         assert False
+    
+    def update_bos_attr_embeddings(self, style_emb, attrs):
+        """
+        update bos_attr_embeddings
+        """
+        with torch.no_grad():
+            for attr in attrs:
+                self.num_styles[attr] = self.num_styles[attr] + 1
+                self.bos_attr_embeddings.weight[attr] = (
+                (self.num_styles[attr]-1) * self.bos_attr_embeddings.weight[attr] + style_emb)/self.num_styles[attr]
+
+
 
     def get_attention(self, latent, h_t, y_t, mask):
         """

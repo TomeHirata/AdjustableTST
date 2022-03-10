@@ -45,10 +45,11 @@ class TransformerEncoder(nn.Module):
             1024, embed_dim, self.padding_idx,
             left_pad=args.left_pad_source,
         )
-
-        self.layers = nn.ModuleList()
+        layers = []
+        # self.layers = nn.ModuleList()
         for k in range(args.encoder_layers):
-            self.layers[k] = TransformerEncoderLayer(args)
+            layers.append(TransformerEncoderLayer(args))
+        self.layers = nn.ModuleList(layers)
 
     def forward(self, src_tokens, src_lengths):
 
@@ -120,7 +121,10 @@ class TransformerDecoder(nn.Module):
             self.register_buffer('attr_shifts', args.attr_shifts.clone())
         if self.bos_attr != '':
             n_bos_attr = sum(args.n_labels) if self.bos_attr == 'avg' else reduce(mul, args.n_labels, 1)
-            self.bos_attr_embeddings = nn.Embedding(n_bos_attr, self.emb_dim)
+            self.bos_attr_embeddings = nn.Embedding(n_bos_attr, self.emb_dim//2)
+            # self.bos_attr_embeddings
+            self.num_styles = [0]*n_bos_attr
+            self.style_proj = nn.Linear(self.emb_dim//2,self.emb_dim)
         if self.bias_attr != '':
             n_bias_attr = sum(args.n_labels) if self.bias_attr == 'avg' else reduce(mul, args.n_labels, 1)
             self.bias_attr_embeddings = nn.Embedding(n_bias_attr, self.n_words)
@@ -136,10 +140,14 @@ class TransformerDecoder(nn.Module):
             1024, self.emb_dim, self.pad_index,
             left_pad=args.left_pad_target,
         )
-
-        self.layers = nn.ModuleList()
+        layers = []
+        # self.layers = nn.ModuleList()
         for k in range(args.decoder_layers):
-            self.layers[k] = TransformerDecoderLayer(args)
+            layers.append(TransformerDecoderLayer(args))
+        self.layers = nn.ModuleList(layers)
+        # self.layers = nn.ModuleList()
+        # for k in range(args.decoder_layers):
+        #     self.layers[k] = TransformerDecoderLayer(args)
 
         # projection layers
         proj = nn.Linear(self.emb_dim, self.n_words)
@@ -153,9 +161,9 @@ class TransformerDecoder(nn.Module):
         Generate beginning of sentence attribute embedding.
         """
         if self.bos_attr == 'avg':
-            return self.bos_attr_embeddings(attr).mean(1)
+            return self.style_proj(self.bos_attr_embeddings(attr).mean(1).detach())
         if self.bos_attr == 'cross':
-            return self.bos_attr_embeddings(((attr - self.attr_offset[None]) * self.attr_shifts[None]).sum(1))
+            return self.style_proj(self.bos_attr_embeddings(((attr - self.attr_offset[None]) * self.attr_shifts[None]).sum(1)).detach())
         assert False
 
     def get_bias_attr(self, attr):
@@ -167,6 +175,18 @@ class TransformerDecoder(nn.Module):
         if self.bias_attr == 'cross':
             return self.bias_attr_embeddings(((attr - self.attr_offset[None]) * self.attr_shifts[None]).sum(1))
         assert False
+    
+    def update_bos_attr_embeddings(self, style_emb, attrs):
+        """
+        update bos_attr_embeddings
+        """
+        B, _ = style_emb.shape
+        with torch.no_grad():
+            for i in range(B):
+                for attr in attrs:
+                    self.num_styles[attr] = self.num_styles[attr] + 1
+                    self.bos_attr_embeddings.weight[attr] = (
+                    (self.num_styles[attr]-1) * self.bos_attr_embeddings.weight[attr] + style_emb[i])/self.num_styles[attr]
 
     def forward(self, encoded, y, attr, one_hot=False, incremental_state=None):
         assert not one_hot, 'one_hot=True has not been implemented for transformer'
