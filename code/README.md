@@ -1,70 +1,46 @@
-# Code for Multiple-Attribute Text Rewriting
+# Code
 
-## 1. Dataset creation
+## 1. データセットの準備
 
-Please follow instructions in data/README.md to create training, validation and test datasets for Yelp and Amazon. In the rest of this README, we will use Yelp as an example for how to run things.
+data/README.mdの指示に従い、YelpとAmazonのトレーニング、バリデーション、テストデータセットを作成してください。このREADMEの残りの部分では、Yelpを例として、どのように実行するかを説明します。
 
-After dataset creation, you should end up with a folder `../data/dataset/yelp/processed/style_transfer/` that contains processed datasets for Yelp.
+データセット作成後、加工されたYelpレビューデータセットを含むフォルダ `../data/dataset/yelp/processed/style_transfer/` が作成されるはずです。
 
-## 2. Train Sentiment & Category Classifiers for Evaluation while Training
+## 2. 属性判別器の学習
 
 ```bash
 mkdir ../data/dataset/yelp/processed/style_transfer/classifier_training
 cd ../data/dataset/yelp/processed/style_transfer/
 ```
 
-### Create data for fastText training of Sentiment, Binary Sentiment & Categories
+### fastText感情判別器の学習用データの作成
 
 ```bash
-awk -F "\t" '{print $1" __label__"$3}' train.fader.with_cat.proc.40000 > classifier_training/train.sentiment.40000.txt
 awk -F "\t" '{print $1" __label__"$4}' train.fader.with_cat.proc.40000 > classifier_training/train.binary_sentiment.40000.txt
 sed -i '/__label__0/d' classifier_training/train.binary_sentiment.40000.txt
-awk -F "\t" '{print $1" __label__"$34}' train.fader.with_cat.proc.40000 > classifier_training/train.categories.40000.txt
 
-awk -F "\t" '{print $1" __label__"$3}' valid.fader.with_cat.proc.40000 > valid sentiment.40000.txt
 awk -F "\t" '{print $1" __label__"$4}' valid.fader.with_cat.proc.40000 > valid.binary_sentiment.40000.txt
 sed -i '/__label__0/d' valid.binary_sentiment.40000.txt
-awk -F "\t" '{print $1" __label__"$34}' valid.fader.with_cat.proc.40000 > valid.categories.40000.txt
 ```
 
-### Train and Evaluate fastText classifiers
+### fastText感情判別器の学習
 
 ```bash
 fasttext supervised -wordNgrams 4 -minn 3 -maxn 3 -input classifier_training/train.binary_sentiment.40000.txt -output classifier_training/fasttext.binary_sentiment.40000
 
 fasttext test classifier_training/fasttext.binary_sentiment.40000.bin classifier_training/valid.binary_sentiment.40000.txt
+→判別器の精度が表示されるはずです
 ```
 
-You should expect accuracies around ~97% for binary sentiment classification
-```
-N	8948
-P@1	0.978
-R@1	0.978
-```
+## 3. データセットのバイナリ化
 
-```bash
-fasttext supervised -wordNgrams 4 -minn 3 -maxn 3 -input classifier_training/train.categories.40000.txt -output classifier_training/fasttext.categories.40000
-
-fasttext test classifier_training/fasttext.categories.40000.bin classifier_training/valid.categories.40000.txt
-```
-
-You should expect accuracies around ~85% for binary sentiment classification
-
-```
-N       10000
-P@1     0.852
-R@1     0.852
-```
-
-## 3. Binarize Proessed Data
-
-Once you have the processed data, we will binarze the data into `.pth` files to load data quickly.
+データを素早く読み込むために、データを `.pth` ファイルにバイナリ化します。
 
 ```bash
 bash code/binarize_yelp_data.sh
 ```
 
-This will generate files that we will pass to the training script.
+以下のファイルが作成されているはずです。
 
 ```bash
 data/dataset/yelp/processed/style_transfer/train.fader.with_cat.proc.<bpe_codes>.pth
@@ -72,11 +48,11 @@ data/dataset/yelp/processed/style_transfer/valid.fader.with_cat.proc.<bpe_codes>
 data/dataset/yelp/processed/style_transfer/test.fader.with_cat.proc.<bpe_codes>.pth
 ```
 
-## 4. Training models
+## 4. 属性変換モデルの学習
 
-To train models, use the `code/main-parallel.py` script.
+モデルの学習には、`code/main-parallel.py`スクリプトを用いる。
 
-### Binary sentiment
+### 感情変換
 
 ```bash
 mkdir models/style_transfer
@@ -94,64 +70,6 @@ python main-parallel.py --exp_name test \
     --balanced_train true
 ```
 
-This will create a folder inside `models/style_transfer` that will contain the training log files, model checkpoints and generations on the valid/test sets.
+このフォルダには、トレーニングログファイル、モデルのチェックポイント、各イテレーションでの検証/テストデータセットでの生成結果を表示します。
 
-The log files will contain validation and test self-BLEU as well as classifier accuracies for example:
-
-```bash
-INFO - 06/30/21 05:45:48 - 5:46:04 - ====================== End of epoch 8 ======================
-INFO - 06/30/21 05:45:48 - 5:46:04 - Evaluating sentences using pretrained classifiers (valid) ...
-INFO - 06/30/21 05:46:43 - 5:46:59 - BLEU - valid - binary_sentiment -            ->         -1 |          1 |      Total
-INFO - 06/30/21 05:46:43 - 5:46:59 - BLEU - valid - binary_sentiment -         -1 ->      35.94 |      31.19 |      33.56
-INFO - 06/30/21 05:46:47 - 5:47:03 - BLEU - valid - binary_sentiment -          1 ->      34.81 |      39.23 |      37.02
-INFO - 06/30/21 05:46:47 - 5:47:03 - BLEU - valid - binary_sentiment: 35.292
-INFO - 06/30/21 05:46:47 - 5:47:03 - BLEU - valid: 35.292
-INFO - 06/30/21 05:46:47 - 5:47:03 - Accu - valid - binary_sentiment -            ->         -1 |          1 |      Total
-INFO - 06/30/21 05:46:47 - 5:47:03 - Accu - valid - binary_sentiment -         -1 ->      98.13 |      50.76 |      74.44
-INFO - 06/30/21 05:46:47 - 5:47:03 - Accu - valid - binary_sentiment -          1 ->      85.79 |      99.89 |      92.84
-INFO - 06/30/21 05:46:47 - 5:47:03 - Accu - valid - binary_sentiment: 83.642
-INFO - 06/30/21 05:46:47 - 5:47:03 - Confusion matrix for binary_sentiment:
-INFO - 06/30/21 05:46:47 - 5:47:03 - [[[ 891   17]
-                                       [ 129  779]]
-
-                                      [[1769 1716]
-                                       [   4 3481]]]
-INFO - 06/30/21 05:46:47 - 5:47:03 - Accu - valid: 83.642
-```
-
-NOTE: In our experiments, models significantly benefit from training for long periods of time (~5-6 days on a single GPU) and are fairly sensitive to the choice of hyperparameters that control the accuracy vs BLEU trade-off. The logs above are just an example of what you should expect after ~6 hours of training.
-
-### Restaurant Cuisine Type
-
-```bash
-mkdir models/style_transfer
-python main-parallel.py --exp_name test \
-    --dump_path models/style_transfer \
-    --mono_dataset ../data/dataset/yelp/processed/style_transfer/train.fader.with_cat.proc.40000.pth,../data/dataset/yelp/processed/style_transfer/valid.fader.with_cat.proc.40000.pth,../data/dataset/yelp/processed/style_transfer/test.fader.with_cat.proc.40000.pth \
-    --attributes type \
-    --n_mono -1 \
-    --lambda_ae 1.0 \
-    --lambda_bt 0.6 \
-    --train_ae true \
-    --train_bt true \
-    --eval_ftt_clf type:../data/dataset/yelp/processed/style_transfer/fasttext.categories.40000.bin \
-    --bleu_script_path ../data/mosesdecoder/scripts/generic/multi-bleu.perl \
-    --balanced_train true
-```
-
-### Restaurant Cuisine Type and Sentiment Together
-
-```bash
-mkdir models/style_transfer
-python main-parallel.py --exp_name test \
-    --dump_path models/style_transfer \
-    --mono_dataset ../data/dataset/yelp/processed/style_transfer/train.fader.with_cat.proc.40000.pth,../data/dataset/yelp/processed/style_transfer/valid.fader.with_cat.proc.40000.pth,../data/dataset/yelp/processed/style_transfer/test.fader.with_cat.proc.40000.pth \
-    --attributes binary_sentiment,type \
-    --n_mono -1 \
-    --lambda_ae 1.0 \
-    --lambda_bt 0.6 \
-    --train_ae true \
-    --train_bt true \
-    --eval_ftt_clf binary_sentiment:../data/dataset/yelp/processed/style_transfer/fasttext.binary_sentiment.40000.bin,type:../data/dataset/yelp/processed/style_transfer/fasttext.category.40000.bin \
-    --bleu_script_path ../data/mosesdecoder/scripts/generic/multi-bleu.perl
-```
+ログファイルには、検証やテストデータセットでの分類器の精度とself-BLEU Scoreが含まれます。

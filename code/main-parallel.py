@@ -1,10 +1,3 @@
-# Copyright (c) Facebook, Inc. and its affiliates.
-# All rights reserved.
-#
-# This source code is licensed under the license found in the
-# LICENSE file in the root directory of this source tree.
-#
-
 import time
 import argparse
 import torch
@@ -255,12 +248,7 @@ if __name__ == '__main__':
 
     # language model pretraining
     if params.lm_before > 0:
-        assert False  # TODO: implement
-        logger.info("Pretraining language model for %i iterations ..." % params.lm_before)
-        trainer.n_sentences = 0
-        for _ in range(params.lm_before):
-            trainer.lm_step()
-            trainer.iter()
+        assert False
 
     # start training
     for _ in range(trainer.epoch, params.max_epoch):

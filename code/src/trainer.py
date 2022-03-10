@@ -1,10 +1,3 @@
-# Copyright (c) Facebook, Inc. and its affiliates.
-# All rights reserved.
-#
-# This source code is licensed under the license found in the
-# LICENSE file in the root directory of this source tree.
-#
-
 import os
 import time
 from logging import getLogger
@@ -432,77 +425,6 @@ class TrainerAE(TrainerBase):
         dico = self.data['dico']
         self.bpe_end = np.array([not dico[i].endswith('@@') for i in range(len(dico))])
 
-    # def discriminator_step(self):
-    #     """
-    #     Train the discriminator on the latent space.
-    #     """
-    #     self.encoder.eval()
-    #     self.decoder.eval()
-    #     self.discriminator.train()
-
-    #     # train on monolingual data only
-    #     if self.params.n_mono == 0:
-    #         raise Exception("No data to train the discriminator!")
-
-    #     # batch / encode
-    #     encoded = []
-    #     for lang_id, lang in enumerate(self.params.langs):
-    #         sent1, len1 = self.get_batch('dis')
-    #         with torch.no_grad():
-    #             encoded.append(self.encoder(sent1.cuda(), len1, lang_id))
-
-    #     # discriminator
-    #     dis_inputs = [x.dis_input.view(-1, x.dis_input.size(-1)) for x in encoded]
-    #     ntokens = [dis_input.size(0) for dis_input in dis_inputs]
-    #     encoded = torch.cat(dis_inputs, 0)
-    #     predictions = self.discriminator(encoded.data)
-
-    #     # loss
-    #     self.dis_target = torch.cat([torch.zeros(sz).fill_(i) for i, sz in enumerate(ntokens)])
-    #     self.dis_target = self.dis_target.contiguous().long().cuda()
-    #     y = self.dis_target
-
-    #     loss = F.cross_entropy(predictions, y)
-    #     self.stats['dis_costs'].append(loss.item())
-
-    #     # optimizer
-    #     self.zero_grad('dis')
-    #     loss.backward()
-    #     self.update_params('dis')
-    #     clip_parameters(self.discriminator, self.params.dis_clip)
-
-    # def lm_step(self):
-    #     """
-    #     Language model training.
-    #     """
-    #     self.lm.train()
-
-    #     # batch
-    #     sent, lengths, attr = self.get_batch('lm')
-    #     sent, attr = sent.cuda(), attr.cuda()
-
-    #     # forward
-    #     scores = self.lm(sent[:-1], lengths - 1, attr, True, False)
-
-    #     # loss
-    #     loss = F.cross_entropy(scores.view(-1, self.params.n_words), sent[1:].view(-1))
-    #     self.stats['xe_lm'].append(loss.item())
-    #     loss = self.params.lambda_lm * loss
-
-    #     # check NaN
-    #     if (loss != loss).data.any():
-    #         logger.error("NaN detected")
-    #         exit()
-
-    #     # optimizer
-    #     self.zero_grad(['lm'])
-    #     loss.backward()
-    #     self.update_params(['lm'])
-
-    #     # number of processed sentences / words
-    #     self.stats['processed_s'] += lengths.size(0)
-    #     self.stats['processed_w'] += lengths.sum()
-
     def enc_dec_step(self, lambda_xe, attr_label):
         """
         Source / target autoencoder training (parallel data):
@@ -772,16 +694,6 @@ class TrainerAE(TrainerBase):
             encoded = self.encoder(sent2, len2)
         else:
             raise Exception("Not implemented for attributes yet! Need to add attribute embedding below.")
-            # attr1 -> attr2
-            encoded = self.encoder(sent1, len1)
-            scores = self.decoder(encoded, sent2[:-1], attr2)
-            assert scores.size() == (len2.max() - 1, bs, n_words2)
-
-            # attr2 -> attr3
-            bos = torch.cuda.FloatTensor(1, bs, n_words2).zero_()
-            bos[0, :, params.bos_index] = 1
-            sent2_input = torch.cat([bos, F.softmax(scores / backprop_temperature, -1)], 0)
-            encoded = self.encoder(sent2_input, len2)
 
         # cross-entropy scores / loss
         scores = self.decoder(encoded, sent3[:-1], attr3)
